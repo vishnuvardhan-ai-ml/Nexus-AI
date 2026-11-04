@@ -1,0 +1,144 @@
+@import 'leaflet/dist/leaflet.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+  
+  body {
+    background-color: #070b14;
+    color: #f1f5f9;
+  }
+}
+
+/* Custom scrollbars for telemetry dashboards */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #070b14;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Glassmorphism & Cybernetic Card Effects */
+.glass-panel {
+  background: rgba(16, 25, 46, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(56, 189, 248, 0.12);
+}
+
+.glass-panel-hover {
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.glass-panel-hover:hover {
+  background: rgba(22, 34, 61, 0.85);
+  border-color: rgba(0, 240, 255, 0.3);
+  box-shadow: 0 0 20px -5px rgba(0, 240, 255, 0.15);
+}
+
+/* Subtle grid overlay */
+.bg-grid-pattern {
+  background-size: 32px 32px;
+  background-image: 
+    linear-gradient(to right, rgba(56, 189, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(56, 189, 248, 0.04) 1px, transparent 1px);
+}
+
+/* ==========================================================================
+   Leaflet Cyber Dark Theme Overrides
+   ========================================================================== */
+.leaflet-container {
+  background-color: #070b14 !important;
+  font-family: inherit;
+  width: 100%;
+  height: 100%;
+  z-index: 10;
+}
+
+/* Custom dark popup styling */
+.leaflet-popup-content-wrapper {
+  background: #0d1527 !important;
+  color: #f1f5f9 !important;
+  border: 1px solid rgba(0, 240, 255, 0.25) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 0 15px -3px rgba(0, 240, 255, 0.2) !important;
+  padding: 0 !important;
+  overflow: hidden;
+}
+
+.leaflet-popup-content {
+  margin: 0 !important;
+  line-height: 1.5;
+}
+
+.leaflet-popup-tip {
+  background: #0d1527 !important;
+  border: 1px solid rgba(0, 240, 255, 0.25) !important;
+}
+
+.leaflet-popup-close-button {
+  color: #94a3b8 !important;
+  padding: 8px !important;
+  top: 8px !important;
+  right: 8px !important;
+  font-size: 16px !important;
+  transition: color 0.15s ease;
+}
+
+.leaflet-popup-close-button:hover {
+  color: #00f0ff !important;
+}
+
+/* Dark mode attribution */
+.leaflet-container .leaflet-control-attribution {
+  background: rgba(7, 11, 20, 0.85) !important;
+  color: #64748b !important;
+  font-size: 10px !important;
+  font-family: monospace;
+  padding: 2px 8px !important;
+  border-top-left-radius: 6px;
+  backdrop-filter: blur(4px);
+}
+
+.leaflet-container .leaflet-control-attribution a {
+  color: #38bdf8 !important;
+  text-decoration: none;
+}
+
+.leaflet-container .leaflet-control-attribution a:hover {
+  text-decoration: underline;
+}
+
+/* Marker pulsing animation for high risk */
+@keyframes high-risk-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0.7);
+  }
+  70% {
+    box-shadow: 0 0 0 12px rgba(244, 63, 94, 0);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgba(244, 63, 94, 0);
+  }
+}
+
+.marker-pulse-high {
+  animation: high-risk-pulse 2s infinite;
+}
+

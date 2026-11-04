@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: nexus-ai-backend
+    env: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: ENVIRONMENT
+        value: production
+      - key: DEBUG
+        value: "false"
+      - key: FIREBASE_PROJECT_ID
+        value: nexus-ai-4a631
+      - key: FIREBASE_USE_ADC
+        value: "false"
+      - key: FIREBASE_CREDENTIALS_JSON
+        sync: false
+      - key: BACKEND_CORS_ORIGINS
+        value: '["https://nexus-ai.vercel.app"]'

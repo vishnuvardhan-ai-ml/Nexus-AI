@@ -1,0 +1,61 @@
+# Node dependencies & build artifacts
+node_modules/
+dist/
+dist-ssr/
+*.local
+.npm
+
+# Python cache & virtual environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Testing & Coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+temp_chrome_profile/
+temp_chrome_profile_*/
+*.log
+backend_err.txt
+
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+serviceAccountKey.json
+firebase-admin-key.json
+firebase-service-account.json
+backend/secrets/
+secrets/
+*.pem
+
+# IDE & Editor files
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+.DS_Store
+Thumbs.db

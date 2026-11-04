@@ -1,0 +1,29 @@
+# Root Docker build context exclusions for NEXUS AI
+node_modules/
+dist/
+dist-ssr/
+frontend/
+temp_chrome_profile/
+temp_chrome_profile_*/
+docs/
+
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Strictly exclude secrets and environment files
+.env
+.env.*
+backend/.env
+backend/.env.*
+frontend/.env
+frontend/.env.*
+backend/secrets/
+secrets/
+*.json
+*.pem
+
+# Exclude backend tests from production container
+backend/tests/

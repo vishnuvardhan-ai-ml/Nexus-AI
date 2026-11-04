@@ -1,0 +1,290 @@
+rules_version = '2';
+
+// ===============================================================
+// Assumed Data Model
+// ===============================================================
+//
+// Application: NEXUS AI — Community Intelligence & Risk Decision Platform
+//
+// Collection: users
+// Document ID: {userId} (matches Firebase Auth UID)
+// Fields:
+//   - uid: string (required, 1-128 chars, matches documentId and auth.uid, immutable)
+//   - email: string (required, valid email address format, 3-254 chars, immutable on self-update)
+//   - displayName: string (required, 1-100 chars)
+//   - role: string (required, enum: 'COMMUNITY_USER' | 'ANALYST' | 'ADMIN', immutable on self-update)
+//   - createdAt: timestamp (required, recent or request.time on create, immutable)
+//   - updatedAt: timestamp (required, recent or request.time on create/update)
+//
+// Collection: incidents
+// Document ID: {incidentId} (matches incident.id or unique string)
+// Fields:
+//   - id: string (required, 1-128 chars, matches documentId, immutable)
+//   - title: string (required, 3-200 chars)
+//   - description: string (required, 5-5000 chars)
+//   - category: string (required, enum: 'waterlogging' | 'road_damage' | 'electrical_hazard' | 'waste_management' | 'extreme_heat')
+//   - severity: string (required, enum: 'LOW' | 'MEDIUM' | 'HIGH')
+//   - location: string (required, 2-250 chars)
+//   - latitude: number or null (optional, range: -90.0 to +90.0)
+//   - longitude: number or null (optional, range: -180.0 to +180.0)
+//   - imageUrl: string or null (optional, valid HTTP/HTTPS URL, max 2048 chars)
+//   - status: string (required, enum: 'reported' | 'investigating' | 'mitigating' | 'resolved')
+//   - reportedBy: string (required, matches auth.uid, immutable)
+//   - reporterEmail: string (required, valid email address format, 3-254 chars, immutable)
+//   - createdAt: timestamp (required, recent or request.time on create, immutable)
+//   - updatedAt: timestamp (required, recent or request.time on create/update)
+//
+// ===============================================================
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------
+    // Helper Functions
+    // ---------------------------------------------------------------
+
+    // Check if the request is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Check if user owns the document by matching auth.uid against the path parameter
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Check if user is owner based on document's uid field
+    function isDocOwner() {
+      return isAuthenticated() && request.auth.uid == resource.data.uid;
+    }
+
+    // Verify UID hasn't been tampered with on create
+    function uidUnchanged() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == request.auth.uid;
+    }
+
+    // Ensure uid field is not modified on update
+    function uidNotModified() {
+      return !('uid' in request.resource.data) ||
+        request.resource.data.uid == resource.data.uid;
+    }
+
+    // Check if the user has a verified role custom claim in their token
+    function hasRole(role) {
+      return isAuthenticated() &&
+        ('role' in request.auth.token) &&
+        request.auth.token.role == role;
+    }
+
+    // Check if user is an ADMIN via verified auth token custom claims
+    function isAdmin() {
+      return hasRole('ADMIN');
+    }
+
+    // Check if user is an ANALYST or ADMIN via verified auth token custom claims
+    function isAnalystOrAdmin() {
+      return isAuthenticated() &&
+        ('role' in request.auth.token) &&
+        (request.auth.token.role == 'ANALYST' || request.auth.token.role == 'ADMIN');
+    }
+
+    // Validate that only allowed fields are present in the incoming document
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    // Validate that all required fields are present in the incoming document
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    // Validate string field type and bounds
+    function validStringLength(field, minLen, maxLen) {
+      return request.resource.data[field] is string &&
+        request.resource.data[field].size() >= minLen &&
+        request.resource.data[field].size() <= maxLen;
+    }
+
+    // Validate standard RFC 5322 compliant email format
+    function isValidEmail(email) {
+      return email is string &&
+        email.size() >= 3 &&
+        email.size() <= 254 &&
+        email.matches('^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$');
+    }
+
+    // Validate URL format (http or https with max 2048 chars)
+    function isValidUrl(url) {
+      return url is string &&
+        url.size() <= 2048 &&
+        (url.matches('^https://.*') || url.matches('^http://.*'));
+    }
+
+    // Validate that a timestamp is recent (within 5 minutes) or equal to request.time
+    function isRecent(time) {
+      return time is timestamp &&
+        time > request.time - duration.value(5, 'm') &&
+        time <= request.time + duration.value(1, 'm');
+    }
+
+    // Validate that a timestamp field is either request.time or a recent valid timestamp
+    function isValidTimestampField(field) {
+      return request.resource.data[field] is timestamp &&
+        (request.resource.data[field] == request.time || isRecent(request.resource.data[field]));
+    }
+
+    // ---------------------------------------------------------------
+    // Domain Validators (Validator Function Pattern)
+    // ---------------------------------------------------------------
+
+    // Domain validator for users/{userId} documents (enforced on BOTH create and update)
+    function isValidUser(data, userId) {
+      return hasOnlyAllowedFields(['uid', 'email', 'displayName', 'role', 'createdAt', 'updatedAt']) &&
+        hasRequiredFields(['uid', 'email', 'displayName', 'role', 'createdAt', 'updatedAt']) &&
+        data.uid is string &&
+        data.uid == userId &&
+        data.uid.size() >= 1 &&
+        data.uid.size() <= 128 &&
+        isValidEmail(data.email) &&
+        data.displayName is string &&
+        data.displayName.size() >= 1 &&
+        data.displayName.size() <= 100 &&
+        data.role in ['COMMUNITY_USER', 'ANALYST', 'ADMIN'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // Domain validator for incidents/{incidentId} documents (enforced on BOTH create and update)
+    function isValidIncident(data, incidentId) {
+      return hasOnlyAllowedFields([
+          'id', 'title', 'description', 'category', 'severity',
+          'location', 'latitude', 'longitude', 'imageUrl', 'status',
+          'reportedBy', 'reporterEmail', 'createdAt', 'updatedAt'
+        ]) &&
+        hasRequiredFields([
+          'id', 'title', 'description', 'category', 'severity',
+          'location', 'status', 'reportedBy', 'reporterEmail',
+          'createdAt', 'updatedAt'
+        ]) &&
+        data.id is string &&
+        data.id == incidentId &&
+        data.id.size() >= 1 &&
+        data.id.size() <= 128 &&
+        data.title is string &&
+        data.title.size() >= 3 &&
+        data.title.size() <= 200 &&
+        data.description is string &&
+        data.description.size() >= 5 &&
+        data.description.size() <= 5000 &&
+        data.category in ['waterlogging', 'road_damage', 'electrical_hazard', 'waste_management', 'extreme_heat'] &&
+        data.severity in ['LOW', 'MEDIUM', 'HIGH'] &&
+        data.location is string &&
+        data.location.size() >= 2 &&
+        data.location.size() <= 250 &&
+        (!('latitude' in data) || data.latitude == null || (data.latitude is number && data.latitude >= -90.0 && data.latitude <= 90.0)) &&
+        (!('longitude' in data) || data.longitude == null || (data.longitude is number && data.longitude >= -180.0 && data.longitude <= 180.0)) &&
+        (!('imageUrl' in data) || data.imageUrl == null || (data.imageUrl is string && isValidUrl(data.imageUrl))) &&
+        data.status in ['reported', 'investigating', 'mitigating', 'resolved'] &&
+        data.reportedBy is string &&
+        data.reportedBy.size() >= 1 &&
+        data.reportedBy.size() <= 128 &&
+        isValidEmail(data.reporterEmail) &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    // ---------------------------------------------------------------
+    // Root Default Deny
+    // ---------------------------------------------------------------
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------------
+    // Collection: users/{userId}
+    // ---------------------------------------------------------------
+    match /users/{userId} {
+      // Read: Allowed if user is viewing their own profile, or if user is an ADMIN.
+      // Strictly protects user emails (PII) from blanket authenticated or public enumeration.
+      allow read: if isOwner(userId) || isAdmin();
+
+      // Create: Allowed during self-registration or by ADMIN.
+      // Non-admin users are strictly restricted to role == 'COMMUNITY_USER' (cannot self-grant ANALYST/ADMIN).
+      allow create: if isAuthenticated() &&
+        isValidUser(request.resource.data, userId) &&
+        uidUnchanged() &&
+        isValidTimestampField('createdAt') &&
+        isValidTimestampField('updatedAt') &&
+        (
+          (isOwner(userId) && request.resource.data.role == 'COMMUNITY_USER') ||
+          isAdmin()
+        );
+
+      // Update: Allowed if user is owner and preserves their current role and email (preventing self-escalation),
+      // OR if user is an ADMIN.
+      // Immutable fields uid and createdAt are strictly locked down against tampering.
+      allow update: if isAuthenticated() &&
+        isValidUser(request.resource.data, userId) &&
+        uidNotModified() &&
+        isValidTimestampField('updatedAt') &&
+        request.resource.data.uid == resource.data.uid &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        (
+          (isOwner(userId) && request.resource.data.role == resource.data.role && request.resource.data.email == resource.data.email) ||
+          isAdmin()
+        );
+
+      // Delete: Strictly restricted to ADMINs.
+      allow delete: if isAdmin();
+    }
+
+    // ---------------------------------------------------------------
+    // Collection: incidents/{incidentId}
+    // ---------------------------------------------------------------
+    match /incidents/{incidentId} {
+      // Read: Restricted based on role (Requirement 4):
+      // - Community users are restricted to reading only their own submissions (resource.data.reportedBy == request.auth.uid).
+      // - Municipal Analysts and Admins (isAnalystOrAdmin()) are authorized to read all incident records.
+      // - Unauthenticated requests are strictly denied.
+      allow read: if isAuthenticated() && (
+        resource.data.reportedBy == request.auth.uid ||
+        isAnalystOrAdmin()
+      );
+
+      // Create: Authenticated users can submit incidents.
+      // Must set reportedBy to auth.uid, status must start as 'reported',
+      // category and severity must conform to valid taxonomy enums, and timestamps must be valid.
+      allow create: if isAuthenticated() &&
+        isValidIncident(request.resource.data, incidentId) &&
+        request.resource.data.reportedBy == request.auth.uid &&
+        request.resource.data.status == 'reported' &&
+        isValidTimestampField('createdAt') &&
+        isValidTimestampField('updatedAt');
+
+      // Update: Allowed if either:
+      // 1) Original reporter updating their report while still in 'reported' status (cannot alter reportedBy, reporterEmail, id, createdAt, or status), OR
+      // 2) Municipal ANALYST or ADMIN triaging, updating status ('investigating', 'mitigating', 'resolved'), or modifying report details.
+      allow update: if isAuthenticated() &&
+        isValidIncident(request.resource.data, incidentId) &&
+        isValidTimestampField('updatedAt') &&
+        request.resource.data.id == resource.data.id &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.reportedBy == resource.data.reportedBy &&
+        request.resource.data.reporterEmail == resource.data.reporterEmail &&
+        (
+          (
+            request.auth.uid == resource.data.reportedBy &&
+            resource.data.status == 'reported' &&
+            request.resource.data.status == 'reported'
+          ) ||
+          isAnalystOrAdmin()
+        );
+
+      // Delete: Allowed if user is an ADMIN, OR if original reporter deleting their report
+      // while it is still in 'reported' status (cannot delete once triaged into investigating/mitigating/resolved).
+      allow delete: if isAdmin() ||
+        (isAuthenticated() && request.auth.uid == resource.data.reportedBy && resource.data.status == 'reported');
+    }
+  }
+}

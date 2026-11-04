@@ -1,0 +1,19 @@
+# Docker build context exclusions for NEXUS AI Backend
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Exclude secrets and local environment files
+.env
+.env.*
+secrets/
+*.json
+*.pem
+
+# Exclude test files from final runtime container
+tests/
